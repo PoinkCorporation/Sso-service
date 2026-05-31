@@ -1,0 +1,5 @@
+env: "local"  
+storage_path: "postgres://postgres:maxzak2012@localhost:5432/auth"
+grpc:  
+  port: 44044  
+  timeout: 10h
