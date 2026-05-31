@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sso/internal/domain/models"
-	"sso/internal/lib/jwt"
-	"sso/internal/lib/logger/sl"
-	"sso/internal/storage"
+	"github.com/PoinkCorporation/SSO-service/internal/domain/models"
+	"github.com/PoinkCorporation/SSO-service/internal/lib/jwt"
+	"github.com/PoinkCorporation/SSO-service/internal/lib/logger/sl"
+	"github.com/PoinkCorporation/SSO-service/internal/storage"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -22,6 +22,10 @@ type UserSaver interface {
 	) (uid int64, err error)
 }
 
+type RoleAssigner interface {
+	AssignRole(ctx context.Context, userID int64, role string) error
+}
+
 type UserProvider interface {
 	User(ctx context.Context, email string) (models.User, error)
 }
@@ -31,11 +35,12 @@ type AppProvider interface {
 }
 
 type Auth struct {
-	log         *slog.Logger
-	usrSaver    UserSaver
-	usrProvider UserProvider
-	appProvider AppProvider
-	tokenTTL    time.Duration
+	log          *slog.Logger
+	usrSaver     UserSaver
+	usrProvider  UserProvider
+	appProvider  AppProvider
+	roleAssigner RoleAssigner
+	tokenTTL     time.Duration
 }
 
 func New(
@@ -43,14 +48,16 @@ func New(
 	userSaver UserSaver,
 	userProvider UserProvider,
 	appProvider AppProvider,
+	roleAssigner RoleAssigner,
 	tokenTTL time.Duration,
 ) *Auth {
 	return &Auth{
-		usrSaver:    userSaver,
-		usrProvider: userProvider,
-		log:         log,
-		appProvider: appProvider,
-		tokenTTL:    tokenTTL, // Время жизни возвращаемых токенов
+		usrSaver:     userSaver,
+		usrProvider:  userProvider,
+		log:          log,
+		appProvider:  appProvider,
+		roleAssigner: roleAssigner,
+		tokenTTL:     tokenTTL, // Время жизни возвращаемых токенов
 	}
 }
 
@@ -82,6 +89,10 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 		log.Error("failed to save user", sl.Err(err))
 
 		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := a.roleAssigner.AssignRole(ctx, id, "user"); err != nil {
+		log.Warn("failed to assign default role", sl.Err(err))
 	}
 
 	return id, nil

@@ -3,8 +3,8 @@ package suite
 import (
 	"context"
 	"net"
-	ssov1 "sso/gen/go/sso"
-	"sso/internal/config"
+	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
+	"github.com/PoinkCorporation/SSO-service/internal/config"
 	"strconv"
 	"testing"
 

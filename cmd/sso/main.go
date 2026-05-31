@@ -3,8 +3,8 @@ package main
 import (
 	"log/slog"
 	"os"
-	"sso/internal/app"
-	"sso/internal/config"
+	"github.com/PoinkCorporation/SSO-service/internal/app"
+	"github.com/PoinkCorporation/SSO-service/internal/config"
 )
 
 const (
@@ -18,7 +18,7 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 
-	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL)
+	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.PermissionsAddress, cfg.TokenTTL)
 
 	application.GRPCServer.MustRun()
 }

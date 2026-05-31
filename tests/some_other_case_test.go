@@ -1,8 +1,8 @@
 package tests
 
 import (
-	ssov1 "sso/gen/go/sso"
-	"sso/tests/suite"
+	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
+	"github.com/PoinkCorporation/SSO-service/tests/suite"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v6"

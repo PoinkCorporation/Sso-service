@@ -17,11 +17,12 @@ var (
 const defaultPathToConfigFile = "/home/maksim/Projects/Go/Project/sso/config/config_local.yaml"
 
 type Config struct {
-	Env            string     `yaml:"env" env-default:"local"`
-	StoragePath    string     `yaml:"storage_path" env-required:"true"`
-	GRPC           GRPCConfig `yaml:"grpc"`
-	MigrationsPath string
-	TokenTTL       time.Duration `yaml:"token_ttl" env-default:"1h"`
+	Env                string     `yaml:"env" env-default:"local"`
+	StoragePath        string     `yaml:"storage_path" env-required:"true"`
+	GRPC               GRPCConfig `yaml:"grpc"`
+	MigrationsPath     string
+	PermissionsAddress string        `yaml:"permissions_address" env-default:"localhost:50052"`
+	TokenTTL           time.Duration `yaml:"token_ttl" env-default:"1h"`
 }
 
 type GRPCConfig struct {

@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	// Сгенерированный код
-	ssov1 "sso/gen/go/sso"
-	"sso/internal/services/auth"
-	"sso/internal/storage"
+	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
+	"github.com/PoinkCorporation/SSO-service/internal/services/auth"
+	"github.com/PoinkCorporation/SSO-service/internal/storage"
 )
 
 type serverAPI struct {

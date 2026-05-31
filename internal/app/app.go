@@ -4,9 +4,10 @@ import (
 	"log/slog"
 	"time"
 
-	grpcapp "sso/internal/app/grpc"
-	"sso/internal/services/auth"
-	"sso/internal/storage/postgresql"
+	grpcapp "github.com/PoinkCorporation/SSO-service/internal/app/grpc"
+	clients "github.com/PoinkCorporation/SSO-service/internal/clients/permissions"
+	"github.com/PoinkCorporation/SSO-service/internal/services/auth"
+	"github.com/PoinkCorporation/SSO-service/internal/storage/postgresql"
 )
 
 type App struct {
@@ -17,6 +18,7 @@ func New(
 	log *slog.Logger,
 	grpcPort int,
 	storagePath string,
+	permissionsAddress string,
 	tokenTTL time.Duration,
 ) *App {
 	storage, err := postgresql.New(storagePath)
@@ -24,7 +26,12 @@ func New(
 		panic(err)
 	}
 
-	authService := auth.New(log, storage, storage, storage, tokenTTL)
+	permClient, err := clients.NewPermissionsClient(permissionsAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	authService := auth.New(log, storage, storage, storage, permClient, tokenTTL)
 
 	grpcApp := grpcapp.New(log, authService, grpcPort)
 

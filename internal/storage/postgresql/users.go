@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sso/internal/domain/models"
-	"sso/internal/storage"
+	"github.com/PoinkCorporation/SSO-service/internal/domain/models"
+	"github.com/PoinkCorporation/SSO-service/internal/storage"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"

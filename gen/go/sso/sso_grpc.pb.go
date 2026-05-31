@@ -163,5 +163,5 @@ var Auth_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "sso/sso.proto",
+	Metadata: "github.com/PoinkCorporation/SSO-service/sso.proto",
 }

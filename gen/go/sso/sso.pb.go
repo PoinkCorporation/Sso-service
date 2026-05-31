@@ -239,7 +239,7 @@ const file_sso_sso_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token2s\n" +
 	"\x04Auth\x129\n" +
 	"\bRegister\x12\x15.auth.RegisterRequest\x1a\x16.auth.RegisterResponse\x120\n" +
-	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponseB\x16Z\x14sso/gen/go/sso;ssov1b\x06proto3"
+	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponseB:Z8github.com/PoinkCorporation/SSO-service/gen/go/sso;ssov1b\x06proto3"
 
 var (
 	file_sso_sso_proto_rawDescOnce sync.Once
