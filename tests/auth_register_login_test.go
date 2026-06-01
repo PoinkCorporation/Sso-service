@@ -1,10 +1,11 @@
 package tests
 
 import (
-	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
-	"github.com/PoinkCorporation/SSO-service/tests/suite"
 	"testing"
 	"time"
+
+	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
+	"github.com/PoinkCorporation/SSO-service/tests/suite"
 
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/golang-jwt/jwt/v5"
@@ -25,16 +26,14 @@ func TestRegisterLogin_Login_HappyPath(t *testing.T) {
 	email := gofakeit.Email()
 	pass := randomFakePassword()
 
-	// Сначала зарегистрируем нового пользователя, которого будем логинить
 	respReg, err := st.AuthClient.Register(ctx, &ssov1.RegisterRequest{
 		Email:    email,
 		Password: pass,
 	})
-	// Это вспомогательный запрос, поэтому делаем лишь минимальные проверки
+
 	require.NoError(t, err)
 	assert.NotEmpty(t, respReg.GetUserId())
 
-	// А это основная проверка"github.com/golang-jwt/jwt/v5"
 	respLogin, err := st.AuthClient.Login(ctx, &ssov1.LoginRequest{
 		Email:    email,
 		Password: pass,
@@ -62,7 +61,6 @@ func TestRegisterLogin_Login_HappyPath(t *testing.T) {
 
 	const deltaSeconds = 1
 
-	// Проверяем, что TTL токена примерно соответствует нашим ожиданиям.
 	assert.InDelta(t, loginTime.Add(st.Cfg.TokenTTL).Unix(), claims["exp"].(float64), deltaSeconds)
 }
 

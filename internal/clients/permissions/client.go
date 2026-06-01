@@ -21,6 +21,7 @@ func NewPermissionsClient(address string) (*PermissionsClient, error) {
 		client: permv1.NewPermissionsClient(cc),
 	}, nil
 }
+
 func (c *PermissionsClient) AssignRole(ctx context.Context, userID int64, role string) error {
 	_, err := c.client.AssignRole(ctx, &permv1.AssignRoleRequest{
 		UserId: userID,
