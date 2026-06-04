@@ -1,0 +1,6 @@
+env: "local"  
+storage_path: "postgres://postgres:YOUR_PASSWORD@localhost:5432/auth"
+permissions_address: "localhost:50052"
+grpc:  
+  port: 44044  
+  timeout: 10h

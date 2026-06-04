@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 type App struct {
 	GRPCServer *grpcapp.App
+	storage    *postgresql.PGRepo
 }
 
 func New(
@@ -20,22 +22,28 @@ func New(
 	storagePath string,
 	permissionsAddress string,
 	tokenTTL time.Duration,
-) *App {
+) (*App, error) {
 	storage, err := postgresql.New(storagePath)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to init storage: %w", err)
 	}
 
 	permClient, err := clients.NewPermissionsClient(permissionsAddress)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to init permissions client: %w", err)
 	}
 
-	authService := auth.New(log, storage, storage, storage, permClient, tokenTTL)
+	authService := auth.New(log, storage, permClient, tokenTTL)
 
 	grpcApp := grpcapp.New(log, authService, grpcPort)
 
 	return &App{
 		GRPCServer: grpcApp,
-	}
+		storage:    storage,
+	}, nil
+}
+
+func (a *App) Stop() {
+	a.GRPCServer.Stop()
+	a.storage.Close()
 }

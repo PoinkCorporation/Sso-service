@@ -2,13 +2,11 @@ package postgresql
 
 import (
 	"context"
-	"sync"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type PGRepo struct {
-	mu   sync.Mutex
 	pool *pgxpool.Pool
 }
 
@@ -18,5 +16,9 @@ func New(conStr string) (*PGRepo, error) {
 		return nil, err
 	}
 
-	return &PGRepo{mu: sync.Mutex{}, pool: pool}, nil
+	return &PGRepo{pool: pool}, nil
+}
+
+func (r *PGRepo) Close() {
+	r.pool.Close()
 }

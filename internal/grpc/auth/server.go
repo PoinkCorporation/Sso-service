@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	// Сгенерированный код
+	// Generated code
 	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
 	"github.com/PoinkCorporation/SSO-service/internal/services/auth"
 	"github.com/PoinkCorporation/SSO-service/internal/storage"
@@ -55,7 +55,7 @@ func (s *serverAPI) Login(
 
 	token, err := s.auth.Login(ctx, in.GetEmail(), in.GetPassword(), int(in.GetAppId()))
 	if err != nil {
-		// Ошибку auth.ErrInvalidCredentials мы создадим ниже
+		// auth.ErrInvalidCredentials error is defined below
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 		}
@@ -80,7 +80,7 @@ func (s *serverAPI) Register(
 
 	uid, err := s.auth.RegisterNewUser(ctx, in.GetEmail(), in.GetPassword())
 	if err != nil {
-		// Ошибку storage.ErrUserExists мы создадим ниже
+		// storage.ErrUserExists error is defined below
 		if errors.Is(err, storage.ErrUserExists) {
 			return nil, status.Error(codes.AlreadyExists, "user already exists")
 		}

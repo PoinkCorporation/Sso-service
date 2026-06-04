@@ -34,30 +34,30 @@ type AppProvider interface {
 	App(ctx context.Context, appID int) (models.App, error)
 }
 
+type Storage interface {
+	UserSaver
+	UserProvider
+	AppProvider
+}
+
 type Auth struct {
 	log          *slog.Logger
-	usrSaver     UserSaver
-	usrProvider  UserProvider
-	appProvider  AppProvider
+	storage      Storage
 	roleAssigner RoleAssigner
 	tokenTTL     time.Duration
 }
 
 func New(
 	log *slog.Logger,
-	userSaver UserSaver,
-	userProvider UserProvider,
-	appProvider AppProvider,
+	storage Storage,
 	roleAssigner RoleAssigner,
 	tokenTTL time.Duration,
 ) *Auth {
 	return &Auth{
-		usrSaver:     userSaver,
-		usrProvider:  userProvider,
 		log:          log,
-		appProvider:  appProvider,
+		storage:      storage,
 		roleAssigner: roleAssigner,
-		tokenTTL:     tokenTTL, // Время жизни возвращаемых токенов
+		tokenTTL:     tokenTTL,
 	}
 }
 
@@ -66,8 +66,7 @@ func New(
 func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (int64, error) {
 	const op = "Auth.RegisterNewUser"
 
-	// Создаём локальный объект логгера с доп. полями, содержащими полезную инфу
-	// о текущем вызове функции
+	// Create a local logger with additional fields containing useful info about the current function call
 	log := a.log.With(
 		slog.String("op", op),
 		slog.String("email", email),
@@ -75,7 +74,7 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 
 	log.Info("registering user")
 
-	// Генерируем хэш и соль для пароля.
+	// Generate password hash and salt.
 	passHash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
 		log.Error("failed to generate password hash", sl.Err(err))
@@ -83,8 +82,8 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	// Сохраняем пользователя в БД
-	id, err := a.usrSaver.SaveUser(ctx, email, passHash)
+	// Save user to database
+	id, err := a.storage.SaveUser(ctx, email, passHash)
 	if err != nil {
 		log.Error("failed to save user", sl.Err(err))
 
@@ -109,21 +108,21 @@ var (
 func (a *Auth) Login(
 	ctx context.Context,
 	email string,
-	password string, // пароль в чистом виде, аккуратней с логами!
-	appID int, // ID приложения, в котором логинится пользователь
+	password string, // plain text password, be careful with logs!
+	appID int, // ID of the app the user is logging into
 ) (string, error) {
 	const op = "Auth.Login"
 
 	log := a.log.With(
 		slog.String("op", op),
 		slog.String("username", email),
-		// password либо не логируем, либо логируем в замаскированном виде
+		// password should not be logged, or logged in masked form
 	)
 
 	log.Info("attempting to login user")
 
-	// Достаём пользователя из БД
-	user, err := a.usrProvider.User(ctx, email)
+	// Get user from database
+	user, err := a.storage.User(ctx, email)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			a.log.Warn("user not found", sl.Err(err))
@@ -136,22 +135,22 @@ func (a *Auth) Login(
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	// Проверяем корректность полученного пароля
+	// Verify password correctness
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
 		a.log.Info("invalid credentials", sl.Err(err))
 
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
-	// Получаем информацию о приложении
-	app, err := a.appProvider.App(ctx, appID)
+	// Get app information
+	app, err := a.storage.App(ctx, appID)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	log.Info("user logged in successfully")
 
-	// Создаём токен авторизации
+	// Create authorization token
 	token, err := jwt.NewToken(user, app, a.tokenTTL)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))

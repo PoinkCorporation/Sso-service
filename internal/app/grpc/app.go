@@ -66,6 +66,11 @@ func (a *App) MustRun() {
 }
 
 // Run runs gRPC server.
+func (a *App) Stop() {
+	a.log.Info("stopping gRPC server")
+	a.gRPCServer.GracefulStop()
+}
+
 func (a *App) Run() error {
 	const op = "grpcapp.Run"
 
