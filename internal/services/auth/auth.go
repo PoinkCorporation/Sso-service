@@ -11,6 +11,7 @@ import (
 	"github.com/PoinkCorporation/SSO-service/internal/storage"
 	"time"
 
+	jwtlib "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -99,6 +100,7 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrInvalidToken       = errors.New("invalid token")
 )
 
 // Login checks if user with given credentials exists in the system and returns access token.
@@ -159,4 +161,59 @@ func (a *Auth) Login(
 	}
 
 	return token, nil
+}
+
+// Validate checks if the given token is valid and returns user ID and email.
+func (a *Auth) Validate(ctx context.Context, tokenString string) (int64, string, error) {
+	const op = "Auth.Validate"
+
+	log := a.log.With(slog.String("op", op))
+
+	log.Info("validating token")
+
+	token, err := jwtlib.Parse(tokenString, func(token *jwtlib.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwtlib.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		claims, ok := token.Claims.(jwtlib.MapClaims)
+		if !ok {
+			return nil, fmt.Errorf("invalid claims")
+		}
+
+		appIDFloat, ok := claims["app_id"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("invalid app_id claim")
+		}
+
+		app, err := a.storage.App(context.Background(), int(appIDFloat))
+		if err != nil {
+			return nil, fmt.Errorf("app lookup: %w", err)
+		}
+
+		return []byte(app.Secret), nil
+	})
+	if err != nil {
+		log.Warn("invalid token", sl.Err(err))
+		return 0, "", fmt.Errorf("%s: %w", op, ErrInvalidToken)
+	}
+
+	claims, ok := token.Claims.(jwtlib.MapClaims)
+	if !ok {
+		return 0, "", fmt.Errorf("%s: invalid claims", op)
+	}
+
+	uidFloat, ok := claims["uid"].(float64)
+	if !ok {
+		return 0, "", fmt.Errorf("%s: invalid uid claim", op)
+	}
+
+	email, ok := claims["email"].(string)
+	if !ok {
+		return 0, "", fmt.Errorf("%s: invalid email claim", op)
+	}
+
+	log.Info("token validated successfully", slog.Int64("uid", int64(uidFloat)))
+
+	return int64(uidFloat), email, nil
 }

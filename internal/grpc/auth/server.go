@@ -31,6 +31,10 @@ type Auth interface {
 		email string,
 		password string,
 	) (userID int64, err error)
+	Validate(
+		ctx context.Context,
+		token string,
+	) (userID int64, email string, err error)
 }
 
 func Register(gRPCServer *grpc.Server, auth Auth) {
@@ -89,4 +93,23 @@ func (s *serverAPI) Register(
 	}
 
 	return &ssov1.RegisterResponse{UserId: uid}, nil
+}
+
+func (s *serverAPI) Validate(
+	ctx context.Context,
+	in *ssov1.ValidateRequest,
+) (*ssov1.ValidateResponse, error) {
+	if in.Token == "" {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+
+	uid, email, err := s.auth.Validate(ctx, in.GetToken())
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidToken) {
+			return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
+		}
+		return nil, status.Error(codes.Internal, "failed to validate token")
+	}
+
+	return &ssov1.ValidateResponse{UserId: uid, Email: email}, nil
 }
