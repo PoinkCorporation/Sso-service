@@ -12,3 +12,6 @@ CREATE TABLE IF NOT EXISTS apps
     name   TEXT NOT NULL UNIQUE,
     secret TEXT NOT NULL UNIQUE
 );
+
+INSERT INTO apps (id, name, secret) VALUES (1, 'messenger', 'messenger-secret-key')
+ON CONFLICT DO NOTHING;

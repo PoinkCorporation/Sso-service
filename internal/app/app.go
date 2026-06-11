@@ -6,7 +6,9 @@ import (
 	"time"
 
 	grpcapp "github.com/PoinkCorporation/SSO-service/internal/app/grpc"
-	clients "github.com/PoinkCorporation/SSO-service/internal/clients/permissions"
+	sessionsclients "github.com/PoinkCorporation/SSO-service/internal/clients/sessions"
+	permclients "github.com/PoinkCorporation/SSO-service/internal/clients/permissions"
+	profileclients "github.com/PoinkCorporation/SSO-service/internal/clients/profile"
 	"github.com/PoinkCorporation/SSO-service/internal/services/auth"
 	"github.com/PoinkCorporation/SSO-service/internal/storage/postgresql"
 )
@@ -21,6 +23,8 @@ func New(
 	grpcPort int,
 	storagePath string,
 	permissionsAddress string,
+	profileAddress string,
+	sessionsAddress string,
 	tokenTTL time.Duration,
 ) (*App, error) {
 	storage, err := postgresql.New(storagePath)
@@ -28,12 +32,22 @@ func New(
 		return nil, fmt.Errorf("failed to init storage: %w", err)
 	}
 
-	permClient, err := clients.NewPermissionsClient(permissionsAddress)
+	permClient, err := permclients.NewPermissionsClient(permissionsAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init permissions client: %w", err)
 	}
 
-	authService := auth.New(log, storage, permClient, tokenTTL)
+	profileClient, err := profileclients.NewProfileClient(profileAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init profile client: %w", err)
+	}
+
+	sessionsClient, err := sessionsclients.NewSessionsClient(sessionsAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init sessions client: %w", err)
+	}
+
+	authService := auth.New(log, storage, permClient, profileClient, sessionsClient, sessionsClient, tokenTTL)
 
 	grpcApp := grpcapp.New(log, authService, grpcPort)
 

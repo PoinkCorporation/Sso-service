@@ -12,6 +12,7 @@ import (
 	"time"
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,12 +28,32 @@ type RoleAssigner interface {
 	AssignRole(ctx context.Context, userID int64, role string) error
 }
 
+type ProfileCreator interface {
+	CreateDefaultProfile(ctx context.Context, userID int64, username string) error
+}
+
 type UserProvider interface {
 	User(ctx context.Context, email string) (models.User, error)
 }
 
 type AppProvider interface {
 	App(ctx context.Context, appID int) (models.App, error)
+}
+
+type SessionCreator interface {
+	CreateSession(
+		ctx context.Context,
+		userID int64,
+		email string,
+		appID int,
+		jti string,
+		expiresAt time.Time,
+		deviceName, deviceIP, userAgent string,
+	) (string, string, error)
+}
+
+type SessionValidator interface {
+	ValidateSession(ctx context.Context, jti string) (bool, error)
 }
 
 type Storage interface {
@@ -42,23 +63,32 @@ type Storage interface {
 }
 
 type Auth struct {
-	log          *slog.Logger
-	storage      Storage
-	roleAssigner RoleAssigner
-	tokenTTL     time.Duration
+	log              *slog.Logger
+	storage          Storage
+	roleAssigner     RoleAssigner
+	profileCreator   ProfileCreator
+	sessionCreator   SessionCreator
+	sessionValidator SessionValidator
+	tokenTTL         time.Duration
 }
 
 func New(
 	log *slog.Logger,
 	storage Storage,
 	roleAssigner RoleAssigner,
+	profileCreator ProfileCreator,
+	sessionCreator SessionCreator,
+	sessionValidator SessionValidator,
 	tokenTTL time.Duration,
 ) *Auth {
 	return &Auth{
-		log:          log,
-		storage:      storage,
-		roleAssigner: roleAssigner,
-		tokenTTL:     tokenTTL,
+		log:              log,
+		storage:          storage,
+		roleAssigner:     roleAssigner,
+		profileCreator:   profileCreator,
+		sessionCreator:   sessionCreator,
+		sessionValidator: sessionValidator,
+		tokenTTL:         tokenTTL,
 	}
 }
 
@@ -67,7 +97,6 @@ func New(
 func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (int64, error) {
 	const op = "Auth.RegisterNewUser"
 
-	// Create a local logger with additional fields containing useful info about the current function call
 	log := a.log.With(
 		slog.String("op", op),
 		slog.String("email", email),
@@ -75,24 +104,24 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 
 	log.Info("registering user")
 
-	// Generate password hash and salt.
 	passHash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
 		log.Error("failed to generate password hash", sl.Err(err))
-
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	// Save user to database
 	id, err := a.storage.SaveUser(ctx, email, passHash)
 	if err != nil {
 		log.Error("failed to save user", sl.Err(err))
-
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := a.roleAssigner.AssignRole(ctx, id, "user"); err != nil {
 		log.Warn("failed to assign default role", sl.Err(err))
+	}
+
+	if err := a.profileCreator.CreateDefaultProfile(ctx, id, email); err != nil {
+		log.Warn("failed to create default profile", sl.Err(err))
 	}
 
 	return id, nil
@@ -103,64 +132,68 @@ var (
 	ErrInvalidToken       = errors.New("invalid token")
 )
 
-// Login checks if user with given credentials exists in the system and returns access token.
-//
-// If user exists, but password is incorrect, returns error.
-// If user doesn't exist, returns error.
+// Login checks if user with given credentials exists in the system and returns access token
+// along with session information (session_id, refresh_token).
 func (a *Auth) Login(
 	ctx context.Context,
 	email string,
-	password string, // plain text password, be careful with logs!
-	appID int, // ID of the app the user is logging into
-) (string, error) {
+	password string,
+	appID int,
+	deviceName, deviceIP, userAgent string,
+) (string, string, string, error) {
 	const op = "Auth.Login"
 
 	log := a.log.With(
 		slog.String("op", op),
 		slog.String("username", email),
-		// password should not be logged, or logged in masked form
 	)
 
 	log.Info("attempting to login user")
 
-	// Get user from database
 	user, err := a.storage.User(ctx, email)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			a.log.Warn("user not found", sl.Err(err))
-
-			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+			return "", "", "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 		}
-
 		a.log.Error("failed to get user", sl.Err(err))
-
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	// Verify password correctness
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
 		a.log.Info("invalid credentials", sl.Err(err))
-
-		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		return "", "", "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
-	// Get app information
 	app, err := a.storage.App(ctx, appID)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", op, err)
+		if errors.Is(err, storage.ErrAppNotFound) {
+			return "", "", "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		}
+		return "", "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	log.Info("user logged in successfully")
 
-	// Create authorization token
-	token, err := jwt.NewToken(user, app, a.tokenTTL)
+	jti := uuid.New().String()
+	token, err := jwt.NewToken(user, app, a.tokenTTL, jti)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))
-
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	return token, nil
+	expiresAt := time.Now().Add(a.tokenTTL)
+
+	sessionID, refreshToken, err := a.sessionCreator.CreateSession(
+		ctx, user.ID, user.Email, appID, jti, expiresAt,
+		deviceName, deviceIP, userAgent,
+	)
+	if err != nil {
+		a.log.Error("failed to create session", sl.Err(err))
+		return "", "", "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	return token, sessionID, refreshToken, nil
 }
 
 // Validate checks if the given token is valid and returns user ID and email.
@@ -213,7 +246,49 @@ func (a *Auth) Validate(ctx context.Context, tokenString string) (int64, string,
 		return 0, "", fmt.Errorf("%s: invalid email claim", op)
 	}
 
+	jti, ok := claims["jti"].(string)
+	if !ok {
+		return 0, "", fmt.Errorf("%s: invalid jti claim", op)
+	}
+
+	valid, err := a.sessionValidator.ValidateSession(ctx, jti)
+	if err != nil {
+		log.Warn("failed to validate session", sl.Err(err))
+		return 0, "", fmt.Errorf("%s: %w", op, ErrInvalidToken)
+	}
+	if !valid {
+		log.Warn("session is not active", slog.String("jti", jti))
+		return 0, "", fmt.Errorf("%s: %w", op, ErrInvalidToken)
+	}
+
 	log.Info("token validated successfully", slog.Int64("uid", int64(uidFloat)))
 
 	return int64(uidFloat), email, nil
+}
+
+// IssueToken generates a new JWT for an existing user (no password check).
+func (a *Auth) IssueToken(ctx context.Context, userID int64, email string, appID int) (string, string, error) {
+	const op = "Auth.IssueToken"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.Int64("user_id", userID),
+	)
+
+	app, err := a.storage.App(ctx, appID)
+	if err != nil {
+		log.Error("failed to get app", sl.Err(err))
+		return "", "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	jti := uuid.New().String()
+	user := models.User{ID: userID, Email: email}
+
+	token, err := jwt.NewToken(user, app, a.tokenTTL, jti)
+	if err != nil {
+		log.Error("failed to generate token", sl.Err(err))
+		return "", "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	return token, jti, nil
 }

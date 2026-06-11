@@ -2,6 +2,9 @@ PROTO_DIR := ./proto/
 OUT_DIR := ./gen/go
 OPENAPI_DIR := ./gen/openapiv2
 
+run:
+	go run ./cmd/sso
+
 proto-gen:
 	@mkdir -p $(OUT_DIR) $(OPENAPI_DIR)
 	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --proto_path=$(PROTO_DIR) --go_out=$(OUT_DIR) --go_opt=paths=source_relative \

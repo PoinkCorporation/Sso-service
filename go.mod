@@ -4,9 +4,12 @@ go 1.26.3
 
 require (
 	github.com/PoinkCorporation/Permissions-service v0.0.0-20260531121918-fc2638a301b5
+	github.com/PoinkCorporation/Profile-service v0.0.0-00010101000000-000000000000
+	github.com/PoinkCorporation/Sessions-service v0.0.0-00010101000000-000000000000
 	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
@@ -32,7 +35,6 @@ require (
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
@@ -42,3 +44,7 @@ require (
 )
 
 replace github.com/PoinkCorporation/Permissions-service => ../permissions-service
+
+replace github.com/PoinkCorporation/Profile-service => ../profile-service
+
+replace github.com/PoinkCorporation/Sessions-service => ../sessions-service

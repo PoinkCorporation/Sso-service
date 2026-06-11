@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	// Generated code
 	ssov1 "github.com/PoinkCorporation/SSO-service/gen/go/sso"
 	"github.com/PoinkCorporation/SSO-service/internal/services/auth"
 	"github.com/PoinkCorporation/SSO-service/internal/storage"
@@ -25,7 +24,8 @@ type Auth interface {
 		email string,
 		password string,
 		appID int,
-	) (token string, err error)
+		deviceName, deviceIP, userAgent string,
+	) (token string, sessionID string, refreshToken string, err error)
 	RegisterNewUser(
 		ctx context.Context,
 		email string,
@@ -35,6 +35,12 @@ type Auth interface {
 		ctx context.Context,
 		token string,
 	) (userID int64, email string, err error)
+	IssueToken(
+		ctx context.Context,
+		userID int64,
+		email string,
+		appID int,
+	) (token string, jti string, err error)
 }
 
 func Register(gRPCServer *grpc.Server, auth Auth) {
@@ -57,9 +63,16 @@ func (s *serverAPI) Login(
 		return nil, status.Error(codes.InvalidArgument, "app_id is required")
 	}
 
-	token, err := s.auth.Login(ctx, in.GetEmail(), in.GetPassword(), int(in.GetAppId()))
+	token, sessionID, refreshToken, err := s.auth.Login(
+		ctx,
+		in.GetEmail(),
+		in.GetPassword(),
+		int(in.GetAppId()),
+		in.GetDeviceName(),
+		in.GetDeviceIp(),
+		in.GetUserAgent(),
+	)
 	if err != nil {
-		// auth.ErrInvalidCredentials error is defined below
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 		}
@@ -67,7 +80,11 @@ func (s *serverAPI) Login(
 		return nil, status.Error(codes.Internal, "failed to login")
 	}
 
-	return &ssov1.LoginResponse{Token: token}, nil
+	return &ssov1.LoginResponse{
+		Token:        token,
+		SessionId:    sessionID,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *serverAPI) Register(
@@ -84,7 +101,6 @@ func (s *serverAPI) Register(
 
 	uid, err := s.auth.RegisterNewUser(ctx, in.GetEmail(), in.GetPassword())
 	if err != nil {
-		// storage.ErrUserExists error is defined below
 		if errors.Is(err, storage.ErrUserExists) {
 			return nil, status.Error(codes.AlreadyExists, "user already exists")
 		}
@@ -112,4 +128,28 @@ func (s *serverAPI) Validate(
 	}
 
 	return &ssov1.ValidateResponse{UserId: uid, Email: email}, nil
+}
+
+func (s *serverAPI) IssueToken(
+	ctx context.Context,
+	in *ssov1.IssueTokenRequest,
+) (*ssov1.IssueTokenResponse, error) {
+	if in.GetUserId() == 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	if in.GetEmail() == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	if in.GetAppId() == 0 {
+		return nil, status.Error(codes.InvalidArgument, "app_id is required")
+	}
+
+	token, jti, err := s.auth.IssueToken(ctx, in.GetUserId(), in.GetEmail(), int(in.GetAppId()))
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to issue token")
+	}
+
+	return &ssov1.IssueTokenResponse{Token: token, Jti: jti}, nil
 }
