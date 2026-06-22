@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/PoinkCorporation/SSO-service/internal/app"
 	"github.com/PoinkCorporation/SSO-service/internal/config"
+	"github.com/PoinkCorporation/SSO-service/internal/otel"
 	"github.com/PoinkCorporation/SSO-service/internal/lib/logger/sl"
 )
 
@@ -22,7 +24,13 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 
-	application, err := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.PermissionsAddress, cfg.ProfileAddress, cfg.SessionsAddress, cfg.TokenTTL)
+	shutdown, err := otel.Init(context.Background(), "sso-service", "tempo:4317")
+	if err != nil {
+		log.Error("failed to init otel", "error", err)
+	}
+	defer shutdown(context.Background())
+
+	application, err := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.PermissionsAddress, cfg.ProfileAddress, cfg.SessionsAddress, cfg.TokenTTL, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB, cfg.CacheTTL)
 	if err != nil {
 		log.Error("failed to init app", sl.Err(err))
 		os.Exit(1)
@@ -55,6 +63,10 @@ func setupLogger(env string) *slog.Logger {
 	case envProd:
 		log = slog.New(
 			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	default:
+		log = slog.New(
+			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
 	}
 

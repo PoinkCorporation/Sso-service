@@ -4,6 +4,7 @@ import (
 	"context"
 
 	permv1 "github.com/PoinkCorporation/Permissions-service/gen/go/permissions"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -13,7 +14,10 @@ type PermissionsClient struct {
 }
 
 func NewPermissionsClient(address string) (*PermissionsClient, error) {
-	cc, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return nil, err
 	}

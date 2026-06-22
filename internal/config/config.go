@@ -17,14 +17,18 @@ var (
 const defaultPathToConfigFile = "./config/config_local.yaml"
 
 type Config struct {
-	Env                string     `yaml:"env" env-default:"local"`
-	StoragePath        string     `yaml:"storage_path" env-required:"true"`
-	GRPC               GRPCConfig `yaml:"grpc"`
+	Env                string        `yaml:"env" env-default:"local"`
+	StoragePath        string        `yaml:"storage_path" env-required:"true"`
+	GRPC               GRPCConfig   `yaml:"grpc"`
 	MigrationsPath     string
 	PermissionsAddress string        `yaml:"permissions_address" env-default:"localhost:50052"`
 	ProfileAddress     string        `yaml:"profile_address" env-default:"localhost:50054"`
 	SessionsAddress    string        `yaml:"sessions_address" env-default:"localhost:50056"`
 	TokenTTL           time.Duration `yaml:"token_ttl" env-default:"15m"`
+	RedisAddr          string        `yaml:"redis_addr" env-default:"localhost:6379"`
+	RedisPassword      string        `yaml:"redis_password" env-default:""`
+	RedisDB            int           `yaml:"redis_db" env-default:"0"`
+	CacheTTL           time.Duration `yaml:"cache_ttl" env-default:"5m"`
 }
 
 type GRPCConfig struct {

@@ -1,4 +1,4 @@
-env: "local"
+env: "dev"
 storage_path: "postgres://postgres:maxzak2012@sso-db:5432/auth"
 permissions_address: "permissions-service:50052"
 profile_address: "profile-service:50054"
@@ -7,3 +7,7 @@ grpc:
   port: 44044
   timeout: 10h
 migrations_path: "/migrations"
+redis_addr: "redis:6379"
+redis_password: ""
+redis_db: 0
+cache_ttl: 5m

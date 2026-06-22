@@ -4,6 +4,7 @@ import (
 	"context"
 
 	profilev1 "github.com/PoinkCorporation/Profile-service/gen/go/profile"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -13,7 +14,10 @@ type ProfileClient struct {
 }
 
 func NewProfileClient(address string) (*ProfileClient, error) {
-	cc, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -14,9 +14,12 @@ RUN cd sso-service && CGO_ENABLED=0 go build -o /migrator ./cmd/migrator
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder /server /server
 COPY --from=builder /migrator /migrator
 COPY sso-service/migrations /migrations
 COPY sso-service/config/config_docker.yaml /app/config.yaml
+USER appuser
+
 EXPOSE 44044
 CMD ["/server"]

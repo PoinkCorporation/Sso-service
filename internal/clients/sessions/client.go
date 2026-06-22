@@ -2,9 +2,9 @@ package clients
 
 import (
 	"context"
-	"time"
 
 	sessionsv1 "github.com/PoinkCorporation/Sessions-service/gen/go/sessions"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -15,7 +15,10 @@ type SessionsClient struct {
 }
 
 func NewSessionsClient(address string) (*SessionsClient, error) {
-	cc, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -23,31 +26,6 @@ func NewSessionsClient(address string) (*SessionsClient, error) {
 		client: sessionsv1.NewSessionsClient(cc),
 		conn:   cc,
 	}, nil
-}
-
-func (c *SessionsClient) CreateSession(
-	ctx context.Context,
-	userID int64,
-	email string,
-	appID int,
-	jti string,
-	expiresAt time.Time,
-	deviceName, deviceIP, userAgent string,
-) (string, string, error) {
-	resp, err := c.client.CreateSession(ctx, &sessionsv1.CreateSessionRequest{
-		UserId:         userID,
-		Email:          email,
-		AppId:          int32(appID),
-		AccessTokenJti: jti,
-		ExpiresAt:      expiresAt.Unix(),
-		DeviceName:     deviceName,
-		DeviceIp:       deviceIP,
-		UserAgent:      userAgent,
-	})
-	if err != nil {
-		return "", "", err
-	}
-	return resp.SessionId, resp.RefreshToken, nil
 }
 
 func (c *SessionsClient) ValidateSession(ctx context.Context, jti string) (bool, error) {
